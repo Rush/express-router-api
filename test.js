@@ -91,6 +91,22 @@ describe('ExpressApiRouter', function() {
     });
   });
   
+  it('should support plain object with success formatter', () => {
+    router.setSuccessFormatter(result => {
+      return {test: result}
+    });
+    
+    routeTest((req, res) => {
+      return {
+        foo: 'bar'
+      };
+    });
+    
+    return requestTest({test: {
+      foo: 'bar'
+    }});
+  });
+  
   it('should support direct promise', () => {
     routeTest((req, res) => {
       return Promise.resolve({

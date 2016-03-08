@@ -53,6 +53,10 @@ class ExpressApiRouter extends express.Router {
     this.setErrorFormatter = formatter => {
       this.options.errorFormatter = formatter;
     };
+
+    this.setSuccessFormatter = formatter => {
+      this.options.successFormatter = formatter;
+    };
             
     methods.forEach(method => {
       let oldImplementation = this[method];
@@ -75,6 +79,7 @@ class ExpressApiRouter extends express.Router {
               return Promise.resolve(returnValue);
             })
             .then(resolveNestedPromises)
+            .then(this.options.successFormatter ? (data => this.options.successFormatter(data, req, res) ) : (data => data))
             .then(value => {
               if(res._header) {
                 throw new ExpressApiRouterError('Route for ' + path.toString() + ' returned a promise but headers were already sent by the time it was resolved');
