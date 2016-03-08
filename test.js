@@ -153,6 +153,16 @@ describe('ExpressApiRouter', function() {
     
   it('should support reporting JSON errors', () => {
     routeTest((req, res) => {
+      throw new ApiError({error: 'test'}, 403);
+    });
+        
+    return requestTest({
+      error: 'test'
+    }, 403)
+  });
+    
+  it('should support reporting JSON errors from promise', () => {
+    routeTest((req, res) => {
       return Promise.delay(10).then(() => {
         throw new ApiError({error: 'test'}, 403);
       });

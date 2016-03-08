@@ -65,14 +65,13 @@ class ExpressApiRouter extends express.Router {
         
         callbacks = callbacks.map((origHandler, index) => {
           return (req, res, next) => {
-            let returnValue = origHandler(req, res, next);
-            
             let apiErrorHandler = err => {
               res.status(err.statusCode || 500).json(err.message);
               return Promise.resolve();
             };
             
-            Promise.resolve().then(() => {
+            Promise.resolve().then(() => origHandler(req, res, next))
+            .then((returnValue) => {
               if(typeof returnValue === 'undefined' && index === callbacks.length - 1) {
                 throw new ExpressApiRouterError('Route for ' + path.toString() + ' did not return a promise');
               }
