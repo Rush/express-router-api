@@ -1,0 +1,20 @@
+{
+  "name": "express-api-router",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test"
+  },
+  "author": "Damian Kaczmarek <rush@virtkick.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.3.3",
+    "express": "^4.13.4"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.4.5",
+    "request-promise": "^2.0.1"
+  }
+}
