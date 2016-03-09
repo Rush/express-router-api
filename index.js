@@ -9,7 +9,7 @@ function resolveNestedPromises(obj) {
     if(Array.isArray(obj)) {
       return Promise.map(obj, resolveNestedPromises);
     }
-    else if(typeof obj === 'object') {
+    else if(obj && typeof obj === 'object' ) {
       let promisesToResolve = [];
       Object.keys(obj).map(key => {
         let promise = resolveNestedPromises(obj[key]).then(val=> {

@@ -135,19 +135,23 @@ describe('ExpressApiRouter', function() {
     });
   });
   
-  it('should support embedded promise array', () => {
+  it('should support embedded promise array with a possible null', () => {
     routeTest((req, res) => {
       return Promise.resolve({
         foo: Promise.resolve({
           bar: [Promise.resolve('foo'),Promise.resolve({
-            xx: Promise.delay(10).then(()=>'ala')
+            xx: Promise.delay(10).then(()=>'ala'),
+            dd: null,
+            zz: true,
+            yy: false,
+            mm: undefined
           })]
         })
       })
     });
     
     return requestTest({
-      foo: {bar: ['foo', {xx: 'ala'}]}
+      foo: {bar: ['foo', {xx: 'ala', dd: null, zz: true, yy: false}]}
     });
   });
     
