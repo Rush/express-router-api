@@ -3,27 +3,7 @@
 let express = require('express');
 let methods = require('methods');
 let Promise = require('bluebird');
-
-function resolveNestedPromises(obj) {
-  return Promise.resolve(obj).then(obj => {
-    if(Array.isArray(obj)) {
-      return Promise.map(obj, resolveNestedPromises);
-    }
-    else if(obj && typeof obj === 'object' ) {
-      let promisesToResolve = [];
-      Object.keys(obj).map(key => {
-        let promise = resolveNestedPromises(obj[key]).then(val=> {
-          obj[key] = val;
-        });
-        promisesToResolve.push(promise)
-      });
-      if(promisesToResolve.length) {
-        return Promise.all(promisesToResolve).then(() => obj);
-      }
-    }
-    return obj;
-  });
-}
+require('promise-resolve-deep')(Promise);
 
 class ExpressApiRouterError extends Error {
   constructor(message) {
@@ -43,12 +23,12 @@ class ApiError extends Error {
 }
 
 class ExpressApiRouter extends express.Router {
-  constructor(options) {
-    super(options);
-    this.options = options || {};
+  constructor(_options) {
+    super(_options);
+    let options = this.options = _options || {};
     let self = this;
     
-    let silenceExpressApiRouterError = options.silenceExpressApiRouterError;
+    let silenceExpressApiRouterError = this.options.silenceExpressApiRouterError;
 
     this.setErrorFormatter = formatter => {
       this.options.errorFormatter = formatter;
@@ -73,11 +53,11 @@ class ExpressApiRouter extends express.Router {
             Promise.resolve().then(() => origHandler(req, res, next))
             .then((returnValue) => {
               if(typeof returnValue === 'undefined' && index === callbacks.length - 1) {
-                throw new ExpressApiRouterError('Route for ' + path.toString() + ' did not return a promise');
+                throw new ExpressApiRouterError('Warning: Route for ' + path.toString() + ' did not return a promise - this happens when normal route handler is attached to express-router-api. Everything most likely works but you are advised to return API data through a promise.');
               }
               return Promise.resolve(returnValue);
             })
-            .then(resolveNestedPromises)
+            .then(Promise.resolveDeep)
             .then(this.options.successFormatter ? (data => this.options.successFormatter(data, req, res) ) : (data => data))
             .then(value => {
               if(res._header) {
