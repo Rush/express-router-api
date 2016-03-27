@@ -24,8 +24,15 @@ describe('ExpressApiRouter', function() {
     router.get.apply(router, ['/foo'].concat(args));
   }
   
-  function requestTest(data, statusCode) {
-    return rp(`http://localhost:${port}/foo`).then(data => {
+  function paramTest() {
+    let args =  Array.prototype.slice.call(arguments);
+    let paramHandler = args.pop();
+    router.get.apply(router, ['/foo/:param'].concat(args));
+    router.param('param', paramHandler);
+  }
+  
+  function requestTest(data, statusCode, extra) {
+    return rp(`http://localhost:${port}/foo${extra||''}`).then(data => {
       if(data[0] === '[' || data[0] === '{') {
         return JSON.parse(data);
       }
@@ -221,5 +228,31 @@ describe('ExpressApiRouter', function() {
     return requestTest({
       foo: 'abc'
     })
+  });
+  
+  it('should support param handler', () => {
+    paramTest((req, res) => {
+      return req.paramData;
+    }, (req, res, param) => {
+      return Promise.delay(20).then(() => {
+        req.paramData = {foo: req.params.param};
+      });
+    });
+    
+    return requestTest({
+      foo: 'xxx'
+    }, 200, '/xxx');
+  });
+  
+  it('should support reporting JSON errors from promise when thrown from param handler', () => {
+    paramTest((req, res) => {}, (req, res, param) => {
+      return Promise.delay(10).then(() => {
+        throw new ApiError({error: 'test'}, 403);
+      });
+    });
+        
+    return requestTest({
+      error: 'test'
+    }, 403, '/xxx');
   });
 });
