@@ -22,6 +22,17 @@ class ApiError extends Error {
   }
 }
 
+// coutesy of http://stackoverflow.com/a/9924463/403571
+const ARGUMENT_NAMES = /([^\s,]+)/g;
+var STRIP_COMMENTS = /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,\)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,\)]*))/mg;
+function getParamNames(func) {
+  var fnStr = func.toString().replace(STRIP_COMMENTS, '');
+  var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+  if(result === null)
+     result = [];
+  return result;
+}
+
 class ExpressApiRouter extends express.Router {
   constructor(_options) {
     super(_options);
@@ -88,13 +99,13 @@ class ExpressApiRouter extends express.Router {
         let callbacks = Array.prototype.slice.call(arguments, 1);
         
         callbacks = callbacks.map((origHandler, index) => {
+          // return orig handler if it provides a callback
+          if(getParamNames(origHandler).length >= 3) {
+            return origHandler;
+          }
+          
           return (req, res, next) => {
-            let promiseChain = Promise.resolve().then(() => origHandler(req, res, next))
-            .tap((returnValue) => {
-              if(typeof returnValue === 'undefined' && index === callbacks.length - 1) {
-                throw new ExpressApiRouterError('Warning: Route for ' + path.toString() + ' did not return a promise - this happens when normal route handler is attached to express-router-api. Everything most likely works but you are advised to return API data through a promise.');
-              }
-            })
+            let promiseChain = Promise.resolve().then(() => origHandler(req, res))
             .then(Promise.resolveDeep)
             .then(this.options.successFormatter ? (data => this.options.successFormatter(data, req, res) ) : (data => data))
             .then(value => {
