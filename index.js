@@ -2,7 +2,8 @@
 
 let express = require('express');
 let methods = require('methods');
-let Promise = require('bluebird');
+
+let Promise = require('bluebird').getNewLibraryCopy();
 require('promise-resolve-deep')(Promise);
 
 class ExpressApiRouterError extends Error {

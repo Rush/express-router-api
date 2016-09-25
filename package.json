@@ -1,6 +1,6 @@
 {
   "name": "express-router-api",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Express router that lets you construct your API entirely on promises",
   "main": "index.js",
   "scripts": {
@@ -9,13 +9,17 @@
   "author": "Damian Kaczmarek <rush@virtkick.com>",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.3.3",
-    "express": "^4.13.4",
-    "promise-resolve-deep": "^1.0.0"
+    "promise-resolve-deep": "^1.0.0",
+    "bluebird": "^3.4.6"
   },
   "devDependencies": {
     "chai": "^3.5.0",
+    "express": "^4.13.4",
     "mocha": "^2.4.5",
-    "request-promise": "^2.0.1"
+    "request": "^2.75.0",
+    "request-promise": "^4.1.1"
+  },
+  "peerDependencies": {
+    "express": "^4.13.4"
   }
 }
