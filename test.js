@@ -3,7 +3,7 @@
 require('chai');
 let express = require('express');
 let rp = require('request-promise');
-let { ExpressApiRouter, ApiError} = require('./dist');
+let { ExpressApiRouter, ApiError, ApiResponse } = require('./dist');
 let assert = require('chai').assert;
 let Promise = require('bluebird');
 const { of } = require('rxjs');
@@ -39,7 +39,7 @@ describe('ExpressApiRouter', function() {
       return data;
     }).catch(err => {
       if(err.statusCode != (statusCode || 500)) {
-        throw new Error(`Status code should equal ${statusCode || 500}`);
+        throw new Error(`Status code should equal ${statusCode || 500}, was ${err.statusCode}`);
       }
       return JSON.parse(err.error);
     }).then(checkFor(data));
@@ -246,5 +246,29 @@ describe('ExpressApiRouter', function() {
     return requestTest({
       error: 'test'
     }, 403, '/xxx');
+  });
+
+  it('should allow sending a custom response', () => {
+    paramTest((req, res) => {}, (req, res, param) => {
+      return Promise.delay(10).then(() => {
+        return new ApiResponse({customResponse: 'test'}, );
+      });
+    });
+        
+    return requestTest({
+      customResponse: 'test'
+    }, 418, '/xxx');
+  });
+
+  it.skip('should support returning ApiError as a value', () => {
+    routeTest((req, res) => {
+      return Promise.delay(10).then(() => {
+        return new ApiError({error: 'test'}, 403);
+      });
+    });
+        
+    return requestTest({
+      error: 'test'
+    }, 403);
   });
 });

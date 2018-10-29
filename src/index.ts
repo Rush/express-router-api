@@ -30,7 +30,7 @@ export class ApiError extends Error {
 
 type SimpleApiResult = string | object | { [key: string]: string; } | undefined;
 
-class ApiResponse {
+export class ApiResponse {
   constructor(public apiResult: SimpleApiResult, public code: number = 200) {}
 };
 
@@ -83,6 +83,14 @@ function sendApiResponse(res: Response, apiResponse: ApiResponse) {
 
 function toMiddleware(this: ExpressApiRouter, origHandler: any, options: ApiRouterOptions = {}) {
   const internalServerError = options.internalServerError || {error: 'Internal server error'};
+
+  const processApiError = (err: ApiError, req: Request, res: Response) => {
+    return defer(() => resolve(this.errorFormatter(err, req, res)))
+            .pipe(map(formatted => formatted ? new ApiResponse(formatted)
+              : new ApiResponse(err.message, err.statusCode || 500)
+            ));
+  }
+
   return (req: Request, res: Response, next: NextFunction) => {
     const formatterOperator = switchMap((data: ApiResult) => resolve(this.successFormatter(data, req, res)));
 
@@ -96,13 +104,19 @@ function toMiddleware(this: ExpressApiRouter, origHandler: any, options: ApiRout
 
     const isPlainObject = (obj: ApiResult) => (typeof obj === 'object' && !(obj instanceof ApiResponse));
     const subscription = defer(() => resolve(origHandler(req, res)))
-      .pipe(switchMap((obj: ApiResult) => { 
-        return isPlainObject(obj) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
-      }))
-      .pipe(this.successFormatter ? formatterOperator : identity)
       .pipe(
-        map(data => {
-          return new ApiResponse(data, 200);
+        switchMap((obj: ApiResult) => { 
+          return isPlainObject(obj) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
+        }),
+        this.successFormatter ? formatterOperator : identity,
+        switchMap(data => {
+          if (data instanceof ApiError) {
+            return processApiError(data, req, res);
+          }
+          else if (!(data instanceof ApiResponse)) {
+            return of(new ApiResponse(data, 200));
+          }
+          return of(data);
         }),
         catchError((err: Error) => {
           if (err instanceof ExpressApiRouterError) {
@@ -113,10 +127,7 @@ function toMiddleware(this: ExpressApiRouter, origHandler: any, options: ApiRout
             return of(undefined);
           }
           else if (err instanceof ApiError) {
-            return defer(() => resolve(this.errorFormatter(err, req, res)))
-              .pipe(map(formatted => formatted ? new ApiResponse(formatted)
-                : new ApiResponse(err.message, err.statusCode || 500)
-              ));
+            return processApiError(err, req, res);
           }
 
           return throwError(err);
