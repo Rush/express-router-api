@@ -3,7 +3,7 @@ import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 import { Observable, isObservable, from, identity, defer, of, throwError, forkJoin } from 'rxjs';
 import { switchMap, catchError, map } from 'rxjs/operators';
 
-const isPromise = (val: any): val is Promise<any> => typeof val.then === 'function';
+const isPromise = (val: any): val is Promise<any> => (val && typeof val.then === 'function');
 
 export class ExpressApiRouterError extends Error {
   constructor(message: string) {
@@ -65,23 +65,34 @@ const promiseProps = (obj:{ [key: string]: string; }) => {
   })).pipe(map(results => Object.assign({}, ...results)));
 };
 
-function sendApiResponse(res: Response, apiResponse: ApiResponse) {
-  if(apiResponse.apiResult instanceof ApiResponse) {
+function sendApiResponse(res: Response, apiResponse?: ApiResponse) {
+  if (typeof apiResponse === 'undefined') {
+    return false;
+  }
+
+  if(typeof apiResponse.apiResult === 'undefined') {
+    return false;
+  }
+
+  if (apiResponse.apiResult instanceof ApiResponse) {
     apiResponse = apiResponse.apiResult;
   }
   res.status(apiResponse.code);
   if(typeof apiResponse.apiResult === 'object') {
-    return res.json(apiResponse.apiResult);
+    res.json(apiResponse.apiResult);
+    return true;
   }
   else if(typeof apiResponse.apiResult === 'string') {
-    return res.send(apiResponse.apiResult);
+    res.send(apiResponse.apiResult);
+    return true;
   }
   else {
-    return res.end();
+    res.end();
+    return true;
   }
 }
 
-function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, options: ApiRouterOptions = {}) {
+function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, options: ApiRouterOptions = {}, callNext: boolean) {
   const internalServerError = options.internalServerError || {error: 'Internal server error'};
 
   const processApiError = (err: ApiError, req: Request, res: Response) => {
@@ -142,44 +153,14 @@ function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, optio
         }),
       )
       .subscribe((apiResponse: ApiResponse | undefined) => {
-        if (!apiResponse) {
-          return;
+        if (!sendApiResponse(res, apiResponse)) {
+          if (callNext) {
+            next();
+          }
         }
-        sendApiResponse(res, apiResponse);
       });
     req.on('close', () => subscription.unsubscribe())
   };
-}
-
-function toParam(this: ExpressApiRouter, paramResolver: any, options: ApiRouterOptions): RequestParamHandler {
-  return (req: Request, res: Response, next: NextFunction, value: any) => {
-    defer(() => resolve(paramResolver(req, res, value)))
-      .pipe(catchError((err: Error) => {
-        if (err instanceof ExpressApiRouterError) {
-          res.emit('expressApiRouterError', err);
-          if(!options.silenceExpressApiRouterError) {
-            console.error(err.stack);
-          }
-          return of(undefined);
-        }
-        else if (err instanceof ApiError) {
-          return of(new ApiResponse(err.message, err.statusCode || 500));
-        }
-
-        return throwError(err);
-      }))
-      .pipe(catchError((err: Error) => {
-        next(err);
-        return throwError(err);
-      }))
-      .subscribe((value) => {
-        if (value instanceof ApiResponse) {
-          sendApiResponse(res, value);
-          return;
-        }
-        next();
-      });
-  }
 }
 
 type MethodName =  'get' | 'post' | 'put' | 'head' | 'delete' |
@@ -235,8 +216,7 @@ export function ExpressApiRouter(options?: ApiRouterOptions) {
   const oldParam = apiRouter.param;
   apiRouter.param = (nameOrCallback: (string | ParamHandler), handler?: RequestParamHandler) => {
     if (typeof nameOrCallback === 'string') {
-      // toMiddleware.call(apiRouter, nameOrCallback, options);
-      oldParam.call(apiRouter, nameOrCallback, toMiddleware.call(apiRouter, handler, options));
+      oldParam.call(apiRouter, nameOrCallback, toMiddleware.call(apiRouter, handler, options, true));
     } else {
       throw new Error('Deprecated usage since Express 4.11');
     }

@@ -1,14 +1,14 @@
 'use strict';
 
 require('chai');
-let express = require('express');
-let rp = require('request-promise');
-let { ExpressApiRouter, ApiError, ApiResponse, ApiErrors } = require('./dist');
-let assert = require('chai').assert;
-let Promise = require('bluebird');
+const express = require('express');
+const rp = require('request-promise');
+const { ExpressApiRouter, ApiError, ApiResponse, ApiErrors } = require('./dist');
+const {expect, assert} = require('chai');
+const Promise = require('bluebird');
 const { of } = require('rxjs');
 
-let checkFor = (val) => {
+const checkFor = (val) => {
   return val2 => {
     assert.deepEqual(val2, val);
   };
@@ -271,4 +271,20 @@ describe('ExpressApiRouter', function() {
       error: 'test'
     }, 403);
   });
+
+
+  it('returning undefined should not send a response', async () => {
+    routeTest((req, res) => {
+      return Promise.delay(10).then(() => {
+        return undefined;
+      });
+    });
+        
+    let timedOut = false;
+    await requestTest('', 500).timeout(50).catch(Promise.TimeoutError, () => {
+      timedOut = true;
+    });
+    expect(timedOut).to.equal(true);
+  });
+
 });
