@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "mocha test"
+    "test": "mocha test",
+    "build": "tsc -p tsconfig.json"
   },
   "author": "Damian Kaczmarek <rush@virtkick.com>",
   "license": "MIT",

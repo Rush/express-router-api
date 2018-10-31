@@ -3,7 +3,7 @@
 require('chai');
 let express = require('express');
 let rp = require('request-promise');
-let { ExpressApiRouter, ApiError, ApiResponse } = require('./dist');
+let { ExpressApiRouter, ApiError, ApiResponse, ApiErrors } = require('./dist');
 let assert = require('chai').assert;
 let Promise = require('bluebird');
 const { of } = require('rxjs');
@@ -260,7 +260,7 @@ describe('ExpressApiRouter', function() {
     }, 418, '/xxx');
   });
 
-  it.skip('should support returning ApiError as a value', () => {
+  it('should support returning ApiError as a value', () => {
     routeTest((req, res) => {
       return Promise.delay(10).then(() => {
         return new ApiError({error: 'test'}, 403);

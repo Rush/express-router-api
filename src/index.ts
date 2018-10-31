@@ -81,7 +81,7 @@ function sendApiResponse(res: Response, apiResponse: ApiResponse) {
   }
 }
 
-function toMiddleware(this: ExpressApiRouter, origHandler: any, options: ApiRouterOptions = {}) {
+function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, options: ApiRouterOptions = {}) {
   const internalServerError = options.internalServerError || {error: 'Internal server error'};
 
   const processApiError = (err: ApiError, req: Request, res: Response) => {
@@ -102,10 +102,10 @@ function toMiddleware(this: ExpressApiRouter, origHandler: any, options: ApiRout
       return of(undefined);
     };
 
-    const isPlainObject = (obj: ApiResult) => (typeof obj === 'object' && !(obj instanceof ApiResponse));
-    const subscription = defer(() => resolve(origHandler(req, res)))
+    const isPlainObject = (obj: ApiResult) => (typeof obj === 'object' && !(obj instanceof ApiResponse) && !(obj instanceof ApiError));
+    const subscription = defer(() => resolve(origHandler(req, res, next)))
       .pipe(
-        switchMap((obj: ApiResult) => { 
+        switchMap((obj: ApiResult) => {
           return isPlainObject(obj) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
         }),
         this.successFormatter ? formatterOperator : identity,
@@ -235,7 +235,8 @@ export function ExpressApiRouter(options?: ApiRouterOptions) {
   const oldParam = apiRouter.param;
   apiRouter.param = (nameOrCallback: (string | ParamHandler), handler?: RequestParamHandler) => {
     if (typeof nameOrCallback === 'string') {
-      oldParam.call(apiRouter, nameOrCallback, toParam.call(apiRouter, handler, options));
+      // toMiddleware.call(apiRouter, nameOrCallback, options);
+      oldParam.call(apiRouter, nameOrCallback, toMiddleware.call(apiRouter, handler, options));
     } else {
       throw new Error('Deprecated usage since Express 4.11');
     }
