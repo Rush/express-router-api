@@ -3,6 +3,7 @@
 require('chai');
 const express = require('express');
 const rp = require('request-promise');
+const { Router } = require('express');
 const { ExpressApiRouter, ApiError, ApiResponse, ApiErrors } = require('./dist');
 const {expect, assert} = require('chai');
 const Promise = require('bluebird');
@@ -18,33 +19,34 @@ let port = 44441;
 
 describe('ExpressApiRouter', function() {
   let app, router, server;
-  
+
   function routeTest() {
-    let args =  Array.prototype.slice.call(arguments);
+    const args = Array.prototype.slice.call(arguments);
     router.get.apply(router, ['/foo'].concat(args));
   }
-  
+
   function paramTest() {
-    let args =  Array.prototype.slice.call(arguments);
-    let paramHandler = args.pop();
+    const args =  Array.prototype.slice.call(arguments);
+    const paramHandler = args.pop();
     router.get.apply(router, ['/foo/:param'].concat(args));
     router.param('param', paramHandler);
   }
-  
+
   function requestTest(data, statusCode, extra) {
-    return rp(`http://localhost:${port}/foo${extra||''}`).then(data => {
-      if(data[0] === '[' || data[0] === '{') {
+    const url = `http://localhost:${port}/foo${extra||''}`;
+    return rp(url).then(data => {
+      if (data[0] === '[' || data[0] === '{') {
         return JSON.parse(data);
       }
       return data;
     }).catch(err => {
-      if(err.statusCode != (statusCode || 500)) {
+      if (err.statusCode != (statusCode || 500)) {
         throw new Error(`Status code should equal ${statusCode || 500}, was ${err.statusCode}`);
       }
       return JSON.parse(err.error);
     }).then(checkFor(data));
   }
-    
+
   beforeEach(cb => {
     app = express();
     router = new ExpressApiRouter({
@@ -62,27 +64,27 @@ describe('ExpressApiRouter', function() {
     routeTest((req, res) => {
       res.send('test');
     });
-    
+
     return requestTest('test');
   });
-  
+
   it('should support embedded promise', () => {
     routeTest((req, res) => {
       return {
         foo: Promise.delay(10).then(() => 'bar')
       };
     });
-    
+
     return requestTest({
       foo: 'bar'
     });
   });
-  
+
   it('should support observables', () => {
     routeTest((req, res) => {
       return of({foo: 'bar'});
     });
-    
+
     return requestTest({
       foo: 'bar'
     });
@@ -92,7 +94,7 @@ describe('ExpressApiRouter', function() {
     routeTest((req, res) => {
       return {foo: of('bar') };
     });
-    
+
     return requestTest({
       foo: 'bar'
     });
@@ -104,111 +106,111 @@ describe('ExpressApiRouter', function() {
         foo: 'bar'
       };
     });
-    
+
     return requestTest({
       foo: 'bar'
     });
   });
-  
+
   it('should support plain object with success formatter', () => {
     router.setSuccessFormatter(result => {
       return {test: result}
     });
-    
+
     routeTest((req, res) => {
       return {
         foo: 'bar'
       };
     });
-    
+
     return requestTest({test: {
       foo: 'bar'
     }});
   });
-  
+
   it('should support direct promise', () => {
     routeTest((req, res) => {
       return Promise.resolve({
         foo: 'bar'
       });
     });
-    
+
     return requestTest({
       foo: 'bar'
     });
   });
-    
+
   it('should support reporting JSON errors', () => {
     routeTest((req, res) => {
       throw new ApiError({error: 'test'}, 403);
     });
-        
+
     return requestTest({
       error: 'test'
-    }, 403)
+    }, 403);
   });
-    
+
   it('should support reporting JSON errors from promise', () => {
     routeTest((req, res) => {
       return Promise.delay(10).then(() => {
         throw new ApiError({error: 'test'}, 403);
       });
     });
-        
+
     return requestTest({
       error: 'test'
     }, 403)
   });
-  
+
   it('should support custom error formatter', () => {
     router.setErrorFormatter(err => {
       return {data: err.message};
     });
-    
+
     routeTest((req, res) => {
       return Promise.delay(10).then(() => {
         throw new Error('foo');
       });
     });
-    
+
     return requestTest({
       data: 'foo'
-    }, 500)  
+    }, 500)
   });
 
   it('should support custom error formatter for formatting ApiError', () => {
     router.setErrorFormatter(err => {
       return {data: err.message};
     });
-    
+
     routeTest((req, res) => {
       return Promise.delay(10).then(() => {
         throw new ApiError('foo', 200);
       });
     });
-    
+
     return requestTest({
       data: 'foo'
     }, 500)
-    
+
   });
-  
+
   it('should report internal server error when error formatter fails', () => {
     router.setErrorFormatter(err => {
       throw new ApiError({message: err.message}, 403);
     });
-    
+
     routeTest((req, res) => {
       return Promise.delay(10).then(() => {
         throw new Error('foo');
       });
     });
-    
+
     return requestTest({
       error: 'Internal server error'
     }, 500)
   });
-  
+
   it('should support regular middleware', () => {
     routeTest((req, res, next) => {
       req.data = 'abc';
@@ -216,12 +218,12 @@ describe('ExpressApiRouter', function() {
     }, (req, res) => {
       return {foo: req.data}
     });
-    
+
     return requestTest({
       foo: 'abc'
     })
   });
-  
+
   it('should support param handler', () => {
     paramTest((req, res) => {
       return req.paramData;
@@ -230,19 +232,19 @@ describe('ExpressApiRouter', function() {
         req.paramData = {foo: req.params.param};
       });
     });
-    
+
     return requestTest({
       foo: 'xxx'
     }, 200, '/xxx');
   });
-  
+
   it('should support reporting JSON errors from promise when thrown from param handler', () => {
     paramTest((req, res) => {}, (req, res, param) => {
       return Promise.delay(10).then(() => {
         throw new ApiError({error: 'test'}, 403);
       });
     });
-        
+
     return requestTest({
       error: 'test'
     }, 403, '/xxx');
@@ -254,7 +256,7 @@ describe('ExpressApiRouter', function() {
         return new ApiResponse({customResponse: 'test'}, );
       });
     });
-        
+
     return requestTest({
       customResponse: 'test'
     }, 418, '/xxx');
@@ -266,7 +268,7 @@ describe('ExpressApiRouter', function() {
         return new ApiError({error: 'test'}, 403);
       });
     });
-        
+
     return requestTest({
       error: 'test'
     }, 403);
@@ -279,7 +281,7 @@ describe('ExpressApiRouter', function() {
         return undefined;
       });
     });
-        
+
     let timedOut = false;
     await requestTest('', 500).timeout(50).catch(Promise.TimeoutError, () => {
       timedOut = true;
@@ -287,4 +289,44 @@ describe('ExpressApiRouter', function() {
     expect(timedOut).to.equal(true);
   });
 
+  it('should handle arrays from async value', () => {
+    routeTest((req, res) => {
+      return Promise.resolve(['aa']);
+    });
+
+    return requestTest(['aa']);
+
+  });
+
+  it('should handle direct arrays', () => {
+    routeTest((req, res) => {
+      return ['aa'];
+    });
+
+    return requestTest(['aa']);
+  });
+
+  it('should handle empty arrays from async function', () => {
+    routeTest(async (req, res) => {
+      return [];
+    });
+
+    return requestTest([]);
+  });
+
+  it('should handle empty arrays', () => {
+    routeTest((req, res) => {
+      return [];
+    });
+
+    return requestTest([]);
+  });
+
+  it('should handle empty objects from async function', () => {
+    routeTest(async (req, res) => {
+      return {};
+    });
+
+    return requestTest({});
+  });
 });

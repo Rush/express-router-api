@@ -1,7 +1,7 @@
-import { Router, Request, Response, NextFunction, RequestParamHandler, RequestHandler, RouterOptions } from 'express';
+import { NextFunction, Request, RequestHandler, RequestParamHandler, Response, Router, RouterOptions } from 'express';
 import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
-import { Observable, isObservable, from, identity, defer, of, throwError, forkJoin } from 'rxjs';
-import { switchMap, catchError, map } from 'rxjs/operators';
+import { defer, forkJoin, from, identity, isObservable, Observable, of, throwError } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 const isPromise = (val: any): val is Promise<any> => (val && typeof val.then === 'function');
 
@@ -32,7 +32,7 @@ type SimpleApiResult = string | object | { [key: string]: string; } | undefined;
 
 export class ApiResponse {
   constructor(public apiResult: SimpleApiResult, public code: number = 200) {}
-};
+}
 
 type ApiResult = SimpleApiResult | ApiResponse;
 type AsyncApiResult = Observable<ApiResult> | Promise<ApiResult>;
@@ -45,7 +45,7 @@ interface ApiRouterOptions extends RouterOptions {
   successFormatter?: SuccessFormatter;
   silenceExpressApiRouterError?: boolean;
   internalServerError?: string;
-};
+}
 
 function resolve<T>(value: T | Promise<T> | Observable<T>): Observable<T> {
   if (isObservable(value)) {
@@ -57,12 +57,16 @@ function resolve<T>(value: T | Promise<T> | Observable<T>): Observable<T> {
   return of(value);
 }
 
-const promiseProps = (obj:{ [key: string]: string; }) => {
-  return forkJoin(Object.keys(obj).map(key => {
-    return resolve(obj[key]).pipe(map(val => {
+const promiseProps = (obj: { [key: string]: string; }) => {
+  const keys = Object.keys(obj);
+  if (!keys.length) {
+    return of(obj);
+  }
+  return forkJoin(Object.keys(obj).map((key) => {
+    return resolve(obj[key]).pipe(map((val) => {
       return { [key]: val  };
     }));
-  })).pipe(map(results => Object.assign({}, ...results)));
+  })).pipe(map((results) => Object.assign({}, ...results)));
 };
 
 function sendApiResponse(res: Response, apiResponse?: ApiResponse) {
@@ -70,7 +74,7 @@ function sendApiResponse(res: Response, apiResponse?: ApiResponse) {
     return false;
   }
 
-  if(typeof apiResponse.apiResult === 'undefined') {
+  if (typeof apiResponse.apiResult === 'undefined') {
     return false;
   }
 
@@ -78,29 +82,29 @@ function sendApiResponse(res: Response, apiResponse?: ApiResponse) {
     apiResponse = apiResponse.apiResult;
   }
   res.status(apiResponse.code);
-  if(typeof apiResponse.apiResult === 'object') {
+  if (typeof apiResponse.apiResult === 'object') {
     res.json(apiResponse.apiResult);
     return true;
-  }
-  else if(typeof apiResponse.apiResult === 'string') {
+  } else if (typeof apiResponse.apiResult === 'string') {
     res.send(apiResponse.apiResult);
     return true;
-  }
-  else {
+  } else {
     res.end();
     return true;
   }
 }
 
-function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, options: ApiRouterOptions = {}, callNext: boolean) {
+function toMiddleware(this: ExpressApiRouter,
+                      origHandler: RequestHandler,
+                      options: ApiRouterOptions = {}, callNext: boolean) {
   const internalServerError = options.internalServerError || {error: 'Internal server error'};
 
   const processApiError = (err: ApiError, req: Request, res: Response) => {
     return defer(() => resolve(this.errorFormatter(err, req, res)))
-            .pipe(map(formatted => formatted ? new ApiResponse(formatted)
-              : new ApiResponse(err.message, err.statusCode || 500)
+            .pipe(map((formatted) => formatted ? new ApiResponse(formatted)
+              : new ApiResponse(err.message, err.statusCode || 500),
             ));
-  }
+  };
 
   return (req: Request, res: Response, next: NextFunction) => {
     const formatterOperator = switchMap((data: ApiResult) => resolve(this.successFormatter(data, req, res)));
@@ -108,23 +112,27 @@ function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, optio
     const formatError = (err: Error): AsyncApiResult => {
       if (this.errorFormatter) {
         return defer(() => resolve(this.errorFormatter(err, req, res)))
-          .pipe(map(formatted => new ApiResponse(formatted, 500)));
+          .pipe(map((formatted) => new ApiResponse(formatted, 500)));
       }
       return of(undefined);
     };
 
-    const isPlainObject = (obj: ApiResult) => (typeof obj === 'object' && !(obj instanceof ApiResponse) && !(obj instanceof ApiError));
+    const isPlainObject = (obj: ApiResult) => {
+      return (typeof obj === 'object' &&
+        !(obj instanceof ApiResponse) &&
+        !(obj instanceof ApiError)) &&
+        !(obj instanceof Array);
+    };
     const subscription = defer(() => resolve(origHandler(req, res, next)))
       .pipe(
         switchMap((obj: ApiResult) => {
           return isPlainObject(obj) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
         }),
         this.successFormatter ? formatterOperator : identity,
-        switchMap(data => {
+        switchMap((data) => {
           if (data instanceof ApiError) {
             return processApiError(data, req, res);
-          }
-          else if (!(data instanceof ApiResponse)) {
+          } else if (!(data instanceof ApiResponse)) {
             return of(new ApiResponse(data, 200));
           }
           return of(data);
@@ -132,19 +140,19 @@ function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, optio
         catchError((err: Error) => {
           if (err instanceof ExpressApiRouterError) {
             res.emit('expressApiRouterError', err);
-            if(!options.silenceExpressApiRouterError) {
+            if (!options.silenceExpressApiRouterError) {
+              // tslint:disable-next-line:no-console
               console.error(err.stack);
             }
             return of(undefined);
-          }
-          else if (err instanceof ApiError) {
+          } else if (err instanceof ApiError) {
             return processApiError(err, req, res);
           }
 
           return throwError(err);
         }),
         catchError((err: Error) => {
-          return resolve(formatError(err)).pipe(map(jsonError => {
+          return resolve(formatError(err)).pipe(map((jsonError) => {
             return new ApiResponse(jsonError || internalServerError, 500);
           }));
         }),
@@ -159,24 +167,24 @@ function toMiddleware(this: ExpressApiRouter, origHandler: RequestHandler, optio
           }
         }
       });
-    req.on('close', () => subscription.unsubscribe())
+    req.on('close', () => subscription.unsubscribe());
   };
 }
 
 type MethodName =  'get' | 'post' | 'put' | 'head' | 'delete' |
   'options' | 'trace' | 'copy' | 'lock' |'mkcol' | 'move' |'purge' |
-  'propfind' | 'proppatch' | 'unlock' | 'report' | 'mkactivity' | 
+  'propfind' | 'proppatch' | 'unlock' | 'report' | 'mkactivity' |
   'checkout' | 'merge' | 'm-search' | 'notify' | 'subscribe' |
   'unsubscribe' | 'patch' | 'search' | 'connect';
 const methods: MethodName[] = [ 'get', 'post', 'put', 'head', 'delete',
-  'options', 'trace', 'copy', 'lock','mkcol', 'move','purge',
-  'propfind', 'proppatch', 'unlock', 'report', 'mkactivity', 
+  'options', 'trace', 'copy', 'lock', 'mkcol', 'move', 'purge',
+  'propfind', 'proppatch', 'unlock', 'report', 'mkactivity',
   'checkout', 'merge', 'm-search', 'notify', 'subscribe',
   'unsubscribe', 'patch', 'search', 'connect' ];
 
 export interface ExpressApiRouter extends Router {
-  errorFormatter: ErrorFormatter,
-  successFormatter: SuccessFormatter,
+  errorFormatter: ErrorFormatter;
+  successFormatter: SuccessFormatter;
   setErrorFormatter(formatter: ErrorFormatter): void;
   setSuccessFormatter(formatter: SuccessFormatter): void;
 }
@@ -200,11 +208,12 @@ export function ExpressApiRouter(options?: ApiRouterOptions) {
   });
 
   methods.forEach((method: MethodName) => {
-    let oldImplementation = apiRouter[method];
+    const oldImplementation = apiRouter[method];
+    // tslint:disable-next-line:only-arrow-functions
     apiRouter[method] = function(path: PathParams, ...callbacks: (RequestHandler | RequestHandlerParams)[]) {
       callbacks = callbacks.map((origHandler: any, index: number) => {
         // return orig handler if it provides a callback
-        if(origHandler.length >= 3) {
+        if (origHandler.length >= 3) {
           return origHandler;
         }
         return toMiddleware.call(apiRouter, origHandler, options);
