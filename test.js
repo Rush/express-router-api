@@ -22,7 +22,8 @@ describe('ExpressApiRouter', function() {
 
   function routeTest() {
     const args = Array.prototype.slice.call(arguments);
-    router.get.apply(router, ['/foo'].concat(args));
+    router.get('/foo', ...args);
+    router.route('/fooRoute').get(...args);
   }
 
   function paramTest() {
@@ -328,5 +329,17 @@ describe('ExpressApiRouter', function() {
     });
 
     return requestTest({});
+  });
+
+  it('should support plain object with registered .route', () => {
+    routeTest((req, res) => {
+      return {
+        foo: 'bar'
+      };
+    });
+
+    return requestTest({
+      foo: 'bar'
+    }, 200, 'Route');
   });
 });

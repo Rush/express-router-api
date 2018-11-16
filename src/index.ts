@@ -1,4 +1,4 @@
-import { NextFunction, Request, RequestHandler, RequestParamHandler, Response, Router, RouterOptions } from 'express';
+import { NextFunction, Request, RequestHandler, RequestParamHandler, Response, Router, RouterOptions, IRoute } from 'express';
 import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 import { defer, forkJoin, from, identity, isObservable, Observable, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
@@ -194,19 +194,7 @@ type ParamHandler = (name: string, matcher: RegExp) => RequestParamHandler;
 const defaultErrorFormatter: ErrorFormatter = (err) => of(undefined);
 const defaultSuccessFormatter: SuccessFormatter = (data) => of(data);
 
-export function ExpressApiRouter(options?: ApiRouterOptions) {
-  const router = Router(options);
-  const apiRouter: ExpressApiRouter = Object.assign(router, {
-    errorFormatter: defaultErrorFormatter,
-    successFormatter: defaultSuccessFormatter,
-    setErrorFormatter(formatter: ErrorFormatter) {
-      this.errorFormatter = formatter;
-    },
-    setSuccessFormatter(formatter: SuccessFormatter) {
-      this.successFormatter = formatter;
-    },
-  });
-
+function patchMethods(apiRouter: (Router), options?: ApiRouterOptions) {
   methods.forEach((method: MethodName) => {
     const oldImplementation = apiRouter[method];
     // tslint:disable-next-line:only-arrow-functions
@@ -222,6 +210,49 @@ export function ExpressApiRouter(options?: ApiRouterOptions) {
       return apiRouter;
     };
   });
+}
+
+// TODO remove redundancy with patchMethods
+function patchMethodsForRoute(apiRouter: (IRoute), options?: ApiRouterOptions) {
+  methods.forEach((method: MethodName) => {
+    const oldImplementation = (apiRouter as any)[method];
+    // tslint:disable-next-line:only-arrow-functions
+    (apiRouter as any)[method] = function(...callbacks: (RequestHandler | RequestHandlerParams)[]) {
+      callbacks = callbacks.map((origHandler: any, index: number) => {
+        // return orig handler if it provides a callback
+        if (origHandler.length >= 3) {
+          return origHandler;
+        }
+        return toMiddleware.call(apiRouter, origHandler, options);
+      });
+      oldImplementation.call(apiRouter, ...callbacks);
+      return apiRouter;
+    };
+  });
+}
+
+export function ExpressApiRouter(options?: ApiRouterOptions) {
+  const router = Router(options);
+  const apiRouter: ExpressApiRouter = Object.assign(router, {
+    errorFormatter: defaultErrorFormatter,
+    successFormatter: defaultSuccessFormatter,
+    setErrorFormatter(formatter: ErrorFormatter) {
+      this.errorFormatter = formatter;
+    },
+    setSuccessFormatter(formatter: SuccessFormatter) {
+      this.successFormatter = formatter;
+    },
+  });
+
+  patchMethods(apiRouter, options);
+
+  const oldRoute = apiRouter.route;
+  apiRouter.route = (method: string) => {
+    const routeObject = oldRoute.call(apiRouter, method);
+    patchMethodsForRoute(routeObject as any, options);
+    return routeObject;
+  };
+
   const oldParam = apiRouter.param;
   apiRouter.param = (nameOrCallback: (string | ParamHandler), handler?: RequestParamHandler) => {
     if (typeof nameOrCallback === 'string') {
