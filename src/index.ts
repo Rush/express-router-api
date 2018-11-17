@@ -40,8 +40,10 @@ export class ApiResponse {
 export type ApiResult = SimpleApiResult | ApiResponse;
 export type AsyncApiResult = Observable<ApiResult> | Promise<ApiResult>;
 
-export type ErrorFormatter = (err: Error, req: Request, res: Response) => AsyncApiResult | ApiResult;
-export type SuccessFormatter = (data: ApiResult, req: Request, res: Response) => AsyncApiResult | ApiResult;
+export type ErrorFormatter = (this: ExpressApiRouter, err: Error, req: Request, res: Response)
+  => AsyncApiResult | ApiResult;
+export type SuccessFormatter = (this: ExpressApiRouter, data: ApiResult, req: Request, res: Response)
+  => AsyncApiResult | ApiResult;
 
 export interface ApiRouterOptions extends RouterOptions {
   errorFormatter?: ErrorFormatter;
@@ -110,7 +112,8 @@ function toMiddleware(this: ExpressApiRouter,
   };
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const formatterOperator = switchMap((data: ApiResult) => resolve(this.successFormatter(data, req, res)));
+    const formatterOperator = switchMap((data: ApiResult) =>
+      resolve(this.successFormatter(data, req, res)));
 
     const formatError = (err: Error): AsyncApiResult => {
       if (this.errorFormatter) {
@@ -236,9 +239,13 @@ function patchMethodsForRoute(apiRouter: (IRoute), options?: ApiRouterOptions) {
 
 export function ExpressApiRouter(options?: ApiRouterOptions) {
   const router = Router(options);
+
+  const errorFormatter = (options && options.errorFormatter) || defaultErrorFormatter;
+  const successFormatter = (options && options.successFormatter) || defaultSuccessFormatter;
+
   const apiRouter: ExpressApiRouter = Object.assign(router, {
-    errorFormatter: defaultErrorFormatter,
-    successFormatter: defaultSuccessFormatter,
+    errorFormatter,
+    successFormatter,
     setErrorFormatter(formatter: ErrorFormatter) {
       this.errorFormatter = formatter;
     },
