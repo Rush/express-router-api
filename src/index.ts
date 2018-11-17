@@ -1,4 +1,7 @@
-import { NextFunction, Request, RequestHandler, RequestParamHandler, Response, Router, RouterOptions, IRoute } from 'express';
+import {
+  IRoute, NextFunction, Request, RequestHandler,
+  RequestParamHandler, Response, Router, RouterOptions,
+} from 'express';
 import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 import { defer, forkJoin, from, identity, isObservable, Observable, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
@@ -34,11 +37,11 @@ export class ApiResponse {
   constructor(public apiResult: SimpleApiResult, public code: number = 200) {}
 }
 
-type ApiResult = SimpleApiResult | ApiResponse;
-type AsyncApiResult = Observable<ApiResult> | Promise<ApiResult>;
+export type ApiResult = SimpleApiResult | ApiResponse;
+export type AsyncApiResult = Observable<ApiResult> | Promise<ApiResult>;
 
-type ErrorFormatter = (err: Error, req: Request, res: Response) => AsyncApiResult | ApiResult;
-type SuccessFormatter = (data: ApiResult, req: Request, res: Response) => AsyncApiResult | ApiResult;
+export type ErrorFormatter = (err: Error, req: Request, res: Response) => AsyncApiResult | ApiResult;
+export type SuccessFormatter = (data: ApiResult, req: Request, res: Response) => AsyncApiResult | ApiResult;
 
 export interface ApiRouterOptions extends RouterOptions {
   errorFormatter?: ErrorFormatter;
