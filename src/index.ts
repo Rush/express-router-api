@@ -40,7 +40,7 @@ type AsyncApiResult = Observable<ApiResult> | Promise<ApiResult>;
 type ErrorFormatter = (err: Error, req: Request, res: Response) => AsyncApiResult | ApiResult;
 type SuccessFormatter = (data: ApiResult, req: Request, res: Response) => AsyncApiResult | ApiResult;
 
-interface ApiRouterOptions extends RouterOptions {
+export interface ApiRouterOptions extends RouterOptions {
   errorFormatter?: ErrorFormatter;
   successFormatter?: SuccessFormatter;
   silenceExpressApiRouterError?: boolean;
