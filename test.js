@@ -296,7 +296,6 @@ describe('ExpressApiRouter', function() {
     });
 
     return requestTest(['aa']);
-
   });
 
   it('should handle direct arrays', () => {

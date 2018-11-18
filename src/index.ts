@@ -31,7 +31,7 @@ export class ApiError extends Error {
   }
 }
 
-type SimpleApiResult = string | object | { [key: string]: string; } | undefined;
+type SimpleApiResult = string | boolean | number | object | { [key: string]: string; } | undefined;
 
 export class ApiResponse {
   constructor(public apiResult: SimpleApiResult, public code: number = 200) {}
