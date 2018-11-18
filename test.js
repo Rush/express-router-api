@@ -342,4 +342,20 @@ describe('ExpressApiRouter', function() {
       foo: 'bar'
     }, 200, 'Route');
   });
+
+  it('should support plain object with registered .route and success formatter', () => {
+    router.setSuccessFormatter(result => {
+      return {test: result}
+    });
+
+    routeTest((req, res) => {
+      return {
+        foo: 'bar'
+      };
+    });
+
+    return requestTest({
+      test: { foo: 'bar' }
+    }, 200, 'Route');
+  });
 });

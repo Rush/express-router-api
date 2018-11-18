@@ -219,11 +219,11 @@ function patchMethods(apiRouter: (Router), options?: ApiRouterOptions) {
 }
 
 // TODO remove redundancy with patchMethods
-function patchMethodsForRoute(apiRouter: (IRoute), options?: ApiRouterOptions) {
+function patchMethodsForRoute(route: IRoute, apiRouter: Router, options?: ApiRouterOptions) {
   methods.forEach((method: MethodName) => {
-    const oldImplementation = (apiRouter as any)[method];
+    const oldImplementation = (route as any)[method];
     // tslint:disable-next-line:only-arrow-functions
-    (apiRouter as any)[method] = function(...callbacks: (RequestHandler | RequestHandlerParams)[]) {
+    (route as any)[method] = function(...callbacks: (RequestHandler | RequestHandlerParams)[]) {
       callbacks = callbacks.map((origHandler: any, index: number) => {
         // return orig handler if it provides a callback
         if (origHandler.length >= 3) {
@@ -231,8 +231,8 @@ function patchMethodsForRoute(apiRouter: (IRoute), options?: ApiRouterOptions) {
         }
         return toMiddleware.call(apiRouter, origHandler, options);
       });
-      oldImplementation.call(apiRouter, ...callbacks);
-      return apiRouter;
+      oldImplementation.call(route, ...callbacks);
+      return route;
     };
   });
 }
@@ -259,7 +259,7 @@ export function ExpressApiRouter(options?: ApiRouterOptions) {
   const oldRoute = apiRouter.route;
   apiRouter.route = (method: string) => {
     const routeObject = oldRoute.call(apiRouter, method);
-    patchMethodsForRoute(routeObject as any, options);
+    patchMethodsForRoute(routeObject as any, apiRouter, options);
     return routeObject;
   };
 
