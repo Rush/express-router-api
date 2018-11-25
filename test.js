@@ -130,6 +130,28 @@ describe('ExpressApiRouter', function() {
     }});
   });
 
+  it('should not call success formatter for ApiNext', async () => {
+    let formatterCalledCount = 0;
+    router.setSuccessFormatter(result => {
+      formatterCalledCount += 1;
+      return { test: result };
+    });
+
+    routeTest(req => {
+      return ApiNext;
+    }, (req, res) => {
+      return {
+        foo: 'bar'
+      };
+    });
+
+    await requestTest({test: {
+      foo: 'bar'
+    }});
+
+    expect(formatterCalledCount).to.equal(1);
+  });
+
   it('should support direct promise', () => {
     routeTest((req, res) => {
       return Promise.resolve({

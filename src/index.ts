@@ -114,8 +114,12 @@ function toMiddleware(this: ExpressApiRouter,
   };
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const formatterOperator = switchMap((data: ApiResult) =>
-      resolve(this.successFormatter(data, req, res)));
+    const formatterOperator = switchMap((data: ApiResult) => {
+      if (data === ApiNext) {
+        return of(data);
+      }
+      return resolve(this.successFormatter(data, req, res));
+    });
 
     const formatError = (err: Error): AsyncApiResult => {
       if (this.errorFormatter) {
