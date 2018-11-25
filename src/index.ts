@@ -31,9 +31,9 @@ export class ApiError extends Error {
   }
 }
 
-export const ApiNext  = {};
+export const ApiNext: unique symbol = Symbol('ApiNext');
 
-type SimpleApiResult = string | boolean | number | object | { [key: string]: string; } | undefined;
+type SimpleApiResult = string | boolean | number | object | { [key: string]: string; } | typeof ApiNext |  undefined;
 
 export class ApiResponse {
   constructor(public apiResult: SimpleApiResult, public code: number = 200) {}
