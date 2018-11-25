@@ -4,7 +4,8 @@ require('chai');
 const express = require('express');
 const rp = require('request-promise');
 const { Router } = require('express');
-const { ExpressApiRouter, ApiError, ApiResponse, ApiErrors } = require('./dist');
+require('ts-node/register');
+const { ExpressApiRouter, ApiError, ApiResponse, ApiNext } = require('./src');
 const {expect, assert} = require('chai');
 const Promise = require('bluebird');
 const { of } = require('rxjs');
@@ -222,6 +223,19 @@ describe('ExpressApiRouter', function() {
 
     return requestTest({
       foo: 'abc'
+    })
+  });
+
+  it('should support handling promise-based middleware', () => {
+    routeTest((req) => {
+      req.data = 'def';
+      return ApiNext;
+    }, (req, res) => {
+      return {foo: req.data}
+    });
+
+    return requestTest({
+      foo: 'def'
     })
   });
 

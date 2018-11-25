@@ -31,6 +31,8 @@ export class ApiError extends Error {
   }
 }
 
+export const ApiNext  = {};
+
 type SimpleApiResult = string | boolean | number | object | { [key: string]: string; } | undefined;
 
 export class ApiResponse {
@@ -79,7 +81,7 @@ function sendApiResponse(res: Response, apiResponse?: ApiResponse) {
     return false;
   }
 
-  if (typeof apiResponse.apiResult === 'undefined') {
+  if (typeof apiResponse.apiResult === 'undefined' || apiResponse.apiResult === ApiNext) {
     return false;
   }
 
@@ -168,7 +170,7 @@ function toMiddleware(this: ExpressApiRouter,
       )
       .subscribe((apiResponse: ApiResponse | undefined) => {
         if (!sendApiResponse(res, apiResponse)) {
-          if (callNext) {
+          if (callNext || (apiResponse && apiResponse.apiResult === ApiNext)) {
             next();
           }
         }
