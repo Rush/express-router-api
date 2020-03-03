@@ -3,7 +3,7 @@ import {
   RequestParamHandler, Response, Router, RouterOptions,
 } from 'express';
 import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
-import { defer, forkJoin, from, identity, isObservable, Observable, of, throwError } from 'rxjs';
+import { defer, forkJoin, from, isObservable, Observable, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 
 const isPromise = (val: any): val is Promise<any> => (val && typeof val.then === 'function');
@@ -103,7 +103,7 @@ function sendApiResponse(res: Response, apiResponse?: ApiResponse) {
 
 function toMiddleware(this: ExpressApiRouter,
                       origHandler: RequestHandler,
-                      options: ApiRouterOptions = {}, callNext: boolean) {
+                      options: ApiRouterOptions = {}, callNext: boolean = false) {
   const internalServerError = options.internalServerError || {error: 'Internal server error'};
 
   const processApiError = (err: ApiError, req: Request, res: Response) => {
@@ -140,7 +140,7 @@ function toMiddleware(this: ExpressApiRouter,
         switchMap((obj: ApiResult) => {
           return isPlainObject(obj) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
         }),
-        this.successFormatter ? formatterOperator : identity,
+        formatterOperator,
         switchMap((data) => {
           if (data instanceof ApiError) {
             return processApiError(data, req, res);
@@ -216,7 +216,7 @@ function patchMethods(apiRouter: (Router), options?: ApiRouterOptions) {
         if (origHandler.length >= 3) {
           return origHandler;
         }
-        return toMiddleware.call(apiRouter, origHandler, options);
+        return toMiddleware.call(apiRouter as ExpressApiRouter, origHandler, options);
       });
       oldImplementation.call(apiRouter, path, ...callbacks);
       return apiRouter;
@@ -235,7 +235,7 @@ function patchMethodsForRoute(route: IRoute, apiRouter: Router, options?: ApiRou
         if (origHandler.length >= 3) {
           return origHandler;
         }
-        return toMiddleware.call(apiRouter, origHandler, options);
+        return toMiddleware.call(apiRouter as ExpressApiRouter, origHandler, options);
       });
       oldImplementation.call(route, ...callbacks);
       return route;
@@ -269,10 +269,10 @@ export function ExpressApiRouter(options?: ApiRouterOptions) {
     return routeObject;
   };
 
-  const oldParam = apiRouter.param;
+  const oldParam = apiRouter.param.bind(apiRouter);
   apiRouter.param = (nameOrCallback: (string | ParamHandler), handler?: RequestParamHandler) => {
-    if (typeof nameOrCallback === 'string') {
-      oldParam.call(apiRouter, nameOrCallback, toMiddleware.call(apiRouter, handler, options, true));
+    if (typeof nameOrCallback === 'string' && handler) {
+      oldParam(nameOrCallback, toMiddleware.call(apiRouter, handler as RequestHandler, options, true));
     } else {
       throw new Error('Deprecated usage since Express 4.11');
     }
