@@ -124,7 +124,7 @@ function toMiddleware(this: ExpressApiRouter,
     const formatError = (err: Error): AsyncApiResult => {
       if (this.errorFormatter) {
         return defer(() => resolve(this.errorFormatter(err, req, res)))
-          .pipe(map((formatted) => new ApiResponse(formatted, 500)));
+          .pipe(map((formatted) => new ApiResponse(formatted, (err as any).statusCode || 500)));
       }
       return of(undefined);
     };
@@ -165,11 +165,11 @@ function toMiddleware(this: ExpressApiRouter,
         }),
         catchError((err: Error) => {
           return resolve(formatError(err)).pipe(map((jsonError) => {
-            return new ApiResponse(jsonError || internalServerError, 500);
+            return new ApiResponse(jsonError || internalServerError, (jsonError as any).statusCode || 500);
           }));
         }),
         catchError((err: Error) => {
-          return of(new ApiResponse(internalServerError, 500));
+          return of(new ApiResponse(internalServerError, (err as any).statusCode || 500));
         }),
       )
       .subscribe((apiResponse: ApiResponse | undefined) => {
