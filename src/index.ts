@@ -165,7 +165,7 @@ function toMiddleware(this: ExpressApiRouter,
         }),
         catchError((err: Error) => {
           return resolve(formatError(err)).pipe(map((jsonError) => {
-            return new ApiResponse(jsonError || internalServerError, (jsonError as any).statusCode || 500);
+            return new ApiResponse(jsonError || internalServerError, (jsonError && (jsonError as any).statusCode) || 500);
           }));
         }),
         catchError((err: Error) => {
