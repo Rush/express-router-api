@@ -166,12 +166,22 @@ describe('ExpressApiRouter', function() {
 
   it('should support reporting JSON errors', () => {
     routeTest((req, res) => {
-      throw new ApiError({error: 'test'}, 403);
+      throw new ApiError({error: 'test'});
     });
 
     return requestTest({
       error: 'test'
-    }, 403);
+    }, 500);
+  });
+
+  it('should support reporting JSON errors with user specified http response code', () => {
+    routeTest((req, res) => {
+      throw new ApiError({error: 'test'}, 400);
+    });
+
+    return requestTest({
+      error: 'test'
+    }, 400);
   });
 
   it('should support reporting JSON errors from promise', () => {
@@ -202,6 +212,24 @@ describe('ExpressApiRouter', function() {
     }, 500)
   });
 
+  it('should support custom error formatter with user specified http response code', () => {
+    router.setErrorFormatter(err => {
+      return {data: err.message};
+    });
+
+    routeTest((req, res) => {
+      return Promise.delay(10).then(() => {
+        const error = new Error('foo');
+        error.statusCode = 400;
+        throw error;
+      });
+    });
+
+    return requestTest({
+      data: 'foo'
+    }, 400);
+  });
+
   it('should support custom error formatter for formatting ApiError', () => {
     router.setErrorFormatter(err => {
       return {data: err.message};
@@ -219,9 +247,25 @@ describe('ExpressApiRouter', function() {
 
   });
 
+  it('should allow responding with user specified http response code', () => {
+    router.setErrorFormatter(err => {
+      return {data: err.message};
+    });
+
+    routeTest((req, res) => {
+      return Promise.delay(10).then(() => {
+        throw new ApiError('foo', 400);
+      });
+    });
+
+    return requestTest({
+      data: 'foo'
+    }, 400)
+  });
+
   it('should report internal server error when error formatter fails', () => {
     router.setErrorFormatter(err => {
-      throw new ApiError({message: err.message}, 403);
+      throw new ApiError({message: err.message});
     });
 
     routeTest((req, res) => {
@@ -233,6 +277,22 @@ describe('ExpressApiRouter', function() {
     return requestTest({
       error: 'Internal server error'
     }, 500)
+  });
+
+  it('should report internal server error when error formatter fails with user specified http response code', () => {
+    router.setErrorFormatter(err => {
+      throw new ApiError({message: err.message}, 400);
+    });
+
+    routeTest((req, res) => {
+      return Promise.delay(10).then(() => {
+        throw new Error('foo');
+      });
+    });
+
+    return requestTest({
+      error: 'Internal server error'
+    }, 400);
   });
 
   it('should support regular middleware', () => {
