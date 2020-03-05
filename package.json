@@ -1,6 +1,6 @@
 {
   "name": "express-router-api",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "description": "Express router that lets you construct your API entirely on promises",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
