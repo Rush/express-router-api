@@ -174,7 +174,7 @@ describe('ExpressApiRouter', function() {
     }, 500);
   });
 
-  it('should support reporting JSON errors with user-defined http response code', () => {
+  it('should support reporting JSON errors with user specified http response code', () => {
     routeTest((req, res) => {
       throw new ApiError({error: 'test'}, 400);
     });
@@ -212,7 +212,7 @@ describe('ExpressApiRouter', function() {
     }, 500)
   });
 
-  it('should support custom error formatter with user-specified http response code', () => {
+  it('should support custom error formatter with user specified http response code', () => {
     router.setErrorFormatter(err => {
       return {data: err.message};
     });
@@ -247,7 +247,7 @@ describe('ExpressApiRouter', function() {
 
   });
 
-  it('should allow responding with user-defined http response code', () => {
+  it('should allow responding with user specified http response code', () => {
     router.setErrorFormatter(err => {
       return {data: err.message};
     });
