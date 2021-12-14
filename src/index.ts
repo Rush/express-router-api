@@ -181,10 +181,10 @@ function toMiddleware(this: ExpressApiRouter,
         }
       });
     const unSub = () => subscription.unsubscribe();
-    req.on('end', () => unSub);
-    req.on('finish', () => unSub);
-    req.socket.on('close', () => unSub);
-    req.socket.on('error', () => unSub);
+    req.on('end', () => unSub());
+    req.on('finish', () => unSub());
+    req.socket.on('close', () => unSub());
+    req.socket.on('error', () => unSub());
   };
 }
 
