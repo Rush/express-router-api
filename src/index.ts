@@ -137,8 +137,8 @@ function toMiddleware(this: ExpressApiRouter,
     };
     const subscription = defer(() => resolve(origHandler(req, res, next)))
       .pipe(
-        switchMap((obj: ApiResult) => {
-          return isPlainObject(obj) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
+        switchMap((obj: ApiResult | void) => {
+          return (obj && isPlainObject(obj)) ? promiseProps(obj as { [key: string]: any }) : resolve(obj);
         }),
         formatterOperator,
         switchMap((data) => {
@@ -165,7 +165,8 @@ function toMiddleware(this: ExpressApiRouter,
         }),
         catchError((err: Error) => {
           return resolve(formatError(err)).pipe(map((jsonError) => {
-            return new ApiResponse(jsonError || internalServerError, (jsonError && (jsonError as any).statusCode) || 500);
+            return new ApiResponse(jsonError || internalServerError,
+              (jsonError && (jsonError as any).statusCode) || 500);
           }));
         }),
         catchError((err: Error) => {
@@ -179,7 +180,11 @@ function toMiddleware(this: ExpressApiRouter,
           }
         }
       });
-    req.on('close', () => subscription.unsubscribe());
+    const unSub = () => subscription.unsubscribe();
+    req.on('end', () => unSub);
+    req.on('finish', () => unSub);
+    req.socket.on('close', () => unSub);
+    req.socket.on('error', () => unSub);
   };
 }
 
@@ -218,7 +223,7 @@ function patchMethods(apiRouter: (Router), options?: ApiRouterOptions) {
         }
         return toMiddleware.call(apiRouter as ExpressApiRouter, origHandler, options);
       });
-      oldImplementation.call(apiRouter, path, ...callbacks);
+      (oldImplementation as any).call(apiRouter, path, ...callbacks);
       return apiRouter;
     };
   });
